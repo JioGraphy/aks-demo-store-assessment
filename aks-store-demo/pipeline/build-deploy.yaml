@@ -22,11 +22,91 @@ variables:
 - name: PRODUCT_SERVICE_IMAGE
   value: $(ACR_NAME).azurecr.io/product-service
 
-pool:
-  vmImage: 'ubuntu-latest'
 
+# Build and Test
 stages:
-- stage: Build
 
+- stage: Build
+  displayName: "Build & Test"
+
+jobs:
+
+  - job: BuildStoreFront
+    displayName: "Build store-front"
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - task: NodeTool@0
+        inputs:
+          versionSpec: "20.x"
+        displayName: "Install Node.js"
+
+  - script: |
+      cd src/store-front
+      npm ci
+      npm run lint
+      npm run test:unit --coverage
+    displayName: "Install, lint & unit test store-front"
+
+  - task: Docker@2
+    displayName: "Build store-front image"
+    inputs:
+      command: build
+      repository: $(STORE_FRONT_IMAGE)
+      dockerfile: src/store-front/Dockerfile
+      tags: |
+        $(IMAGE_TAG)
+        latest
+
+
+  - job: BuildOrderService
+    displayName: "Build order-service"
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - task: NodeTool@0
+        inputs:
+          versionSpec: "20.x"
+
+  - script: |
+      cd src/order-service
+      npm ci
+      npm test
+    displayName: "Install, test order-service"
+
+  - task: Docker@2
+    displayName: "Build order-service image"
+    inputs:
+      command: build
+      repository: $(ORDER_SERVICE_IMAGE_IMAGE)
+      dockerfile: src/store-front/Dockerfile
+      tags: |
+        $(IMAGE_TAG)
+        latest
+
+  - job: BuildProductService
+    displayName: "Build product-service"
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - task: NodeTool@0
+        inputs:
+          versionSpec: "20.x"
+
+  - script: |
+      cd src/order-service
+      npm ci
+      npm test
+    displayName: "Install, test order-service"
+
+  - task: Docker@2
+    displayName: "Build product-service image"
+    inputs:
+      command: build
+      repository: $(ORDER_SERVICE_IMAGE_IMAGE)
+      dockerfile: src/store-front/Dockerfile
+      tags: |
+        $(IMAGE_TAG)
+        latest
 
 # CD
