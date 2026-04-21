@@ -1,0 +1,32 @@
+# CI
+trigger:
+  branches:
+    include:
+    - main
+    - feature/*
+    - fix/*
+    - chore/*
+
+pr:
+  branches:
+    include:
+      - main
+
+variables:
+- name: IMAGE_TAG
+  value: $(Build.BuildId)
+- name: STORE_FRONT_IMAGE
+  value: $(ACR_NAME).azurecr.io/store-front
+- name: ORDER_SERVICE_IMAGE
+  value: $(ACR_NAME).azurecr.io/order-service
+- name: PRODUCT_SERVICE_IMAGE
+  value: $(ACR_NAME).azurecr.io/product-service
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+- stage: Build
+
+
+# CD
