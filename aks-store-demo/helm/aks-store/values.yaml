@@ -1,7 +1,7 @@
 global:
   namespace: aks-store
   imageRegistry: ghcr.io/azure-samples/aks-store-demo
-  environment: dev
+  environment: prod
 
 namespace: aks-store
 
@@ -39,6 +39,7 @@ orderService:
   replicas: 1
   service:
     port: 3000
+    targetPort: 3000
   resources:
     requests:
       cpu: 50m
@@ -55,6 +56,7 @@ productService:
   replicas: 1
   service:
     port: 3002
+    targetPort: 3002
   resources:
     requests:
       cpu: 10m
@@ -76,8 +78,8 @@ rabbitmq:
       cpu: 250m
       memory: 256Mi
   auth:
-    username: username
-    password: password
+    username: ""
+    password: ""
 
 networkPolicies:
   enabled: true

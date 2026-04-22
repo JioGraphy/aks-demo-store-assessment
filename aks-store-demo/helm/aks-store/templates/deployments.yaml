@@ -3,10 +3,13 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: store-front
-  namespace: {{ .Values.global.namespace }}
+  namespace: {{ .Values.namespace }}
   labels:
-    {{ include "aks-store.labels" . }}
-    app.kubernetes.io/component: frontend
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/component: {{ .Values.global.environment }}
 spec:
   replicas: {{ .Values.storeFront.replicas }}
   selector:
@@ -16,7 +19,8 @@ spec:
     metadata:
       labels:
         app: store-front
-        {{ include "aks-store.labels" . }}
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       nodeSelector:
         kubernetes.io/os: linux
@@ -52,10 +56,13 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: order-service
-  namespace: {{ .Values.global.namespace }}
+  namespace: {{ .Values.namespace }}
   labels:
-    {{ include "aks-store.labels" . }}
-    app.kubernetes.io/component: backend
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/component: {{ .Values.global.environment }}
 spec:
   replicas: {{ .Values.orderService.replicas }}
   selector:
@@ -65,14 +72,15 @@ spec:
     metadata:
       labels:
         app: order-service
-        {{ include "aks-store.labels" . }}
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       nodeSelector:
         kubernetes.io/os: linux
       initContainers:
         - name: wait-for-rabbitmq
-          image: busybox:1.37.0
-          command: ["sh", "-c", "until nc -zv rabbitmq 5672; do echo waiting for rabbitmq; sleep 2; done;"]
+          image: busybox:1.36
+          command: ["sh", "-c", "until nc -zvw3 rabbitmq 5672; do echo waiting for rabbitmq; sleep 2; done;"]
           resources:
             requests:
               cpu: 10m
@@ -93,9 +101,9 @@ spec:
             - name: ORDER_QUEUE_PORT
               value: "5672"
             - name: ORDER_QUEUE_USERNAME
-              value: {{ .Values.rabbitmq.auth.username }}
+              value: "{{ .Values.rabbitmq.auth.username }}"
             - name: ORDER_QUEUE_PASSWORD
-              value: {{ .Values.rabbitmq.auth.password }}
+              value: "{{ .Values.rabbitmq.auth.password }}"
             - name: ORDER_QUEUE_NAME
               value: "orders"
             - name: FASTIFY_ADDRESS
@@ -125,10 +133,13 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: product-service
-  namespace: {{ .Values.global.namespace }}
+  namespace: {{ .Values.namespace }}
   labels:
-    {{ include "aks-store.labels" . }}
-    app.kubernetes.io/component: backend
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/component: {{ .Values.global.environment }}
 spec:
   replicas: {{ .Values.productService.replicas }}
   selector:
@@ -138,7 +149,8 @@ spec:
     metadata:
       labels:
         app: product-service
-        {{ include "aks-store.labels" . }}
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       nodeSelector:
         kubernetes.io/os: linux

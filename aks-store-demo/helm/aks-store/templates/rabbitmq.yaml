@@ -3,10 +3,13 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: rabbitmq
-  namespace: {{ .Values.global.namespace }}
+  namespace: {{ .Values.namespace }}
   labels:
-    {{ include "aks-store.labels" . }}
-    app.kubernetes.io/component: message-broker
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/component: {{ .Values.global.environment }}
 spec:
   serviceName: rabbitmq
   replicas: {{ .Values.rabbitmq.replicas }}
@@ -17,7 +20,8 @@ spec:
     metadata:
       labels:
         app: rabbitmq
-        {{ include "aks-store.labels" . }}
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       nodeSelector:
         kubernetes.io/os: linux
@@ -31,9 +35,9 @@ spec:
               containerPort: 15672
           env:
             - name: RABBITMQ_DEFAULT_USER
-              value: {{ .Values.rabbitmq.auth.username }}
+              value: "{{ .Values.rabbitmq.auth.username }}"
             - name: RABBITMQ_DEFAULT_PASS
-              value: {{ .Values.rabbitmq.auth.password }}
+              value: "{{ .Values.rabbitmq.auth.password }}"
           resources:
             requests:
               cpu: {{ .Values.rabbitmq.resources.requests.cpu }}
