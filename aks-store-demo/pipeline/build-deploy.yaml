@@ -22,6 +22,13 @@ variables:
 - name: PRODUCT_SERVICE_IMAGE
   value: $(ACR_NAME).azurecr.io/product-service
 
+- name: HELM_RELEASE
+  value: aks-store
+- name: K8S_NAMESPACE
+  value: aks-store
+- name: HELM_CHART_PATH
+  value: helm/aks-store/templates
+
 
 # Build and Test
 stages:
@@ -78,8 +85,8 @@ jobs:
     displayName: "Build order-service image"
     inputs:
       command: build
-      repository: $(ORDER_SERVICE_IMAGE_IMAGE)
-      dockerfile: src/store-front/Dockerfile
+      repository: $(ORDER_SERVICE_IMAGE)
+      dockerfile: src/order-service/Dockerfile
       tags: |
         $(IMAGE_TAG)
         latest
@@ -94,7 +101,7 @@ jobs:
           versionSpec: "20.x"
 
   - script: |
-      cd src/order-service
+      cd src/product-service
       npm ci
       npm test
     displayName: "Install, test order-service"
@@ -104,9 +111,131 @@ jobs:
     inputs:
       command: build
       repository: $(ORDER_SERVICE_IMAGE_IMAGE)
-      dockerfile: src/store-front/Dockerfile
+      dockerfile: src/order-service/Dockerfile
       tags: |
         $(IMAGE_TAG)
         latest
 
+  - stage: Push
+    displayName: "Push to ACR"
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - job: PushImages
+        displayName: "Push images"
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: AzureCLI@2
+            displayName: "ACR Login"
+            inputs:
+              azureSubscription: $(AZURE_SERVICE_CONNECTION)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                az acr login --name $(ACR_NAME)
+ 
+          - task: Docker@2
+            displayName: "Push store-front"
+            inputs:
+              command: push
+              repository: $(STORE_FRONT_IMAGE)
+              tags: |
+                $(IMAGE_TAG)
+                latest
+ 
+          - task: Docker@2
+            displayName: "Push order-service"
+            inputs:
+              command: push
+              repository: $(ORDER_SERVICE_IMAGE)
+              tags: |
+                $(IMAGE_TAG)
+                latest
+ 
+          - task: Docker@2
+            displayName: "Push product-service"
+            inputs:
+              command: push
+              repository: $(PRODUCT_SERVICE_IMAGE)
+              tags: |
+                $(IMAGE_TAG)
+                latest
+ 
+          # Pass image tag to CD pipeline
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: $(System.DefaultWorkingDirectory)
+              artifact: manifests
+              publishLocation: pipeline
+ 
+          - script: |
+              echo "##vso[task.setvariable variable=IMAGE_TAG;isOutput=true]$(IMAGE_TAG)"
+            name: setOutput
+            displayName: "Export IMAGE_TAG for CD"
+
+
 # CD
+  - stage: Deploy
+    displayName: "DeployProduction"
+    jobs:
+      - deployment: HelmDeployProd
+        displayName: "Helm deployment in Production"
+        pool:
+          vmImage: ubuntu-latest
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: AzureCLI@2
+                  displayName: "Get AKS Credentials"
+                  inputs:
+                    azureSubscription: $(AZURE_SERVICE_CONNECTION)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                     az aks get-credentials \
+                      --resource-group $(RESOURCE_GROUP) \
+                      --name $(CLUSTER_NAME) \
+                      --overwrite-existing
+                
+                - task: HelmInstaller@1
+                  inputs:
+                    helmVersionToInstall: "latest"
+
+                - script: |
+                    kubectl create namespace $(K8S_NAMESPACE) --dry-run=client -o yaml | 
+                    kubectl apply -f -
+                  displayName: "Ensure namespace exist"
+                
+                - task: HelmDeploy@0
+                  displayName: "Helm upgrade production"
+                  inputs:
+                    connectionType: none
+                    namespace: $(K8S_NAMESPACE)
+                    command: upgrade
+                    chartpath: $(HELM_CHART_PATH)
+                    releaseName: $(HELM_RELEASE)
+                    install: true
+                    waitforExecution: true
+                    arguments: >
+                      --set global.imageRegistry=$(ACR_NAME).azurecr.io
+                      --set global.environment=prod
+                      --set storeFront.image.tag=$(IMAGE_TAG)
+                      --set orderService.image.tag=$(IMAGE_TAG)
+                      --set productService.image.tag=$(IMAGE_TAG)
+                      --set storeFront.replicas=3
+                      --set orderService.replicas=2
+                      --set productService.replicas=2
+                      --set ingress.tls.enabled=true
+                      --set ingress.host=$(STORE_HOSTNAME)
+                      --set networkPolicies.enabled=true
+                      --timeout 8m
+                  
+                - script: |
+                    kubectl rollout status deployment/store-front -n $(K8S_NAMESPACE) --timeout=180s
+                    kubectl rollout status deployment/order-service -n $(K8S_NAMESPACE) --timeout=180s
+                    kubectl rollout status deployment/product-service -n $(K8S_NAMESPACE) --timeout=180s
+                    echo "Production deploy complete — image tag: $(IMAGE_TAG)"
+                  displayName: "Verify production rollout"
