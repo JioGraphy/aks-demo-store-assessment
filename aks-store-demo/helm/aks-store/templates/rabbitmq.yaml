@@ -1,0 +1,64 @@
+{{/* RabbitMQ StatefulSet */}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rabbitmq
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{ include "aks-store.labels" . }}
+    app.kubernetes.io/component: message-broker
+spec:
+  serviceName: rabbitmq
+  replicas: {{ .Values.rabbitmq.replicas }}
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+        {{ include "aks-store.labels" . }}
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+        - name: rabbitmq
+          image: {{ .Values.rabbitmq.image.repository }}:{{ .Values.rabbitmq.image.tag }}
+          ports:
+            - name: amqp
+              containerPort: 5672
+            - name: http
+              containerPort: 15672
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              value: {{ .Values.rabbitmq.auth.username }}
+            - name: RABBITMQ_DEFAULT_PASS
+              value: {{ .Values.rabbitmq.auth.password }}
+          resources:
+            requests:
+              cpu: {{ .Values.rabbitmq.resources.requests.cpu }}
+              memory: {{ .Values.rabbitmq.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.rabbitmq.resources.limits.cpu }}
+              memory: {{ .Values.rabbitmq.resources.limits.memory }}
+          volumeMounts:
+            - name: rabbitmq-data
+              mountPath: /var/lib/rabbitmq
+          livenessProbe:
+            tcpSocket:
+              port: 5672
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 5672
+            initialDelaySeconds: 5
+            periodSeconds: 5
+  volumeClaimTemplates:
+    - metadata:
+        name: rabbitmq-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

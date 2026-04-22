@@ -1,0 +1,12 @@
+apiVersion: v2
+name: aks-store
+description: AKS Store Demo Application
+type: application
+version: 1.0.0
+appVersion: "2.1.0"
+keywords:
+  - aks
+  - store
+  - microservices
+maintainers:
+  - name: DevOps Team

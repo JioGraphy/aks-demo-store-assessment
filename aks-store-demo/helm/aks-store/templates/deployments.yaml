@@ -1,0 +1,173 @@
+{{/* Store Front Deployment */}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: store-front
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{ include "aks-store.labels" . }}
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: {{ .Values.storeFront.replicas }}
+  selector:
+    matchLabels:
+      app: store-front
+  template:
+    metadata:
+      labels:
+        app: store-front
+        {{ include "aks-store.labels" . }}
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+        - name: store-front
+          image: {{ .Values.global.imageRegistry }}/{{ .Values.storeFront.image.repository }}:{{ .Values.storeFront.image.tag }}
+          imagePullPolicy: {{ .Values.storeFront.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+              name: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: {{ .Values.storeFront.resources.requests.cpu }}
+              memory: {{ .Values.storeFront.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.storeFront.resources.limits.cpu }}
+              memory: {{ .Values.storeFront.resources.limits.memory }}
+---
+{{/* Order Service Deployment */}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{ include "aks-store.labels" . }}
+    app.kubernetes.io/component: backend
+spec:
+  replicas: {{ .Values.orderService.replicas }}
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+        {{ include "aks-store.labels" . }}
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      initContainers:
+        - name: wait-for-rabbitmq
+          image: busybox:1.37.0
+          command: ["sh", "-c", "until nc -zv rabbitmq 5672; do echo waiting for rabbitmq; sleep 2; done;"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+      containers:
+        - name: order-service
+          image: {{ .Values.global.imageRegistry }}/{{ .Values.orderService.image.repository }}:{{ .Values.orderService.image.tag }}
+          imagePullPolicy: {{ .Values.orderService.image.pullPolicy }}
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: ORDER_QUEUE_HOSTNAME
+              value: "rabbitmq"
+            - name: ORDER_QUEUE_PORT
+              value: "5672"
+            - name: ORDER_QUEUE_USERNAME
+              value: {{ .Values.rabbitmq.auth.username }}
+            - name: ORDER_QUEUE_PASSWORD
+              value: {{ .Values.rabbitmq.auth.password }}
+            - name: ORDER_QUEUE_NAME
+              value: "orders"
+            - name: FASTIFY_ADDRESS
+              value: "0.0.0.0"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: {{ .Values.orderService.resources.requests.cpu }}
+              memory: {{ .Values.orderService.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.orderService.resources.limits.cpu }}
+              memory: {{ .Values.orderService.resources.limits.memory }}
+---
+{{/* Product Service Deployment */}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{ include "aks-store.labels" . }}
+    app.kubernetes.io/component: backend
+spec:
+  replicas: {{ .Values.productService.replicas }}
+  selector:
+    matchLabels:
+      app: product-service
+  template:
+    metadata:
+      labels:
+        app: product-service
+        {{ include "aks-store.labels" . }}
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+        - name: product-service
+          image: {{ .Values.global.imageRegistry }}/{{ .Values.productService.image.repository }}:{{ .Values.productService.image.tag }}
+          imagePullPolicy: {{ .Values.productService.image.pullPolicy }}
+          ports:
+            - containerPort: 3002
+              name: http
+          env:
+            - name: AI_SERVICE_URL
+              value: "http://ai-service:5001/"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: {{ .Values.productService.resources.requests.cpu }}
+              memory: {{ .Values.productService.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.productService.resources.limits.cpu }}
+              memory: {{ .Values.productService.resources.limits.memory }}

@@ -1,0 +1,80 @@
+{{/* Store Front Service */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: store-front
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{ include "aks-store.labels" . }}
+    app.kubernetes.io/component: frontend
+spec:
+  type: {{ .Values.storeFront.service.type }}
+  selector:
+    app: store-front
+  ports:
+    - port: {{ .Values.storeFront.service.port }}
+      targetPort: {{ .Values.storeFront.service.targetPort }}
+      protocol: TCP
+      name: http
+---
+{{/* Order Service */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{ include "aks-store.labels" . }}
+    app.kubernetes.io/component: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: order-service
+  ports:
+    - port: {{ .Values.orderService.service.port }}
+      targetPort: {{ .Values.orderService.service.port }}
+      protocol: TCP
+      name: http
+---
+{{/* Product Service */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-service
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{ include "aks-store.labels" . }}
+    app.kubernetes.io/component: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: product-service
+  ports:
+    - port: {{ .Values.productService.service.port }}
+      targetPort: {{ .Values.productService.service.port }}
+      protocol: TCP
+      name: http
+---
+{{/* RabbitMQ Service */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{ include "aks-store.labels" . }}
+    app.kubernetes.io/component: message-broker
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: 5672
+      protocol: TCP
+    - name: http
+      port: 15672
+      targetPort: 15672
+      protocol: TCP

@@ -1,0 +1,103 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  ACR_NAME: ${{ secrets.ACR_NAME }}
+  RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
+  CLUSTER_NAME: ${{ secrets.CLUSTER_NAME }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to ACR
+        uses: azure/login@v2
+        with:
+          azureCredentials: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build and push store-front
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/store-front
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ secrets.ACR_NAME }}.azurecr.io/store-front:${{ github.sha }}
+            ${{ secrets.ACR_NAME }}.azurecr.io/store-front:latest
+          cache-from: type=registry,ref=${{ secrets.ACR_NAME }}.azurecr.io/store-front:latest
+          cache-to: type=inline
+
+      - name: Build and push order-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/order-service
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ secrets.ACR_NAME }}.azurecr.io/order-service:${{ github.sha }}
+            ${{ secrets.ACR_NAME }}.azurecr.io/order-service:latest
+          cache-from: type=registry,ref=${{ secrets.ACR_NAME }}.azurecr.io/order-service:latest
+          cache-to: type=inline
+
+      - name: Build and push product-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/product-service
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ secrets.ACR_NAME }}.azurecr.io/product-service:${{ github.sha }}
+            ${{ secrets.ACR_NAME }}.azurecr.io/product-service:latest
+          cache-from: type=registry,ref=${{ secrets.ACR_NAME }}.azurecr.io/product-service:latest
+          cache-to: type=inline
+
+  deploy:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to ACR
+        uses: azure/login@v2
+        with:
+          azureCredentials: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --name ${{ env.CLUSTER_NAME }} \
+            --overwrite-existing
+
+      - name: Install Helm
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install aks-store ./helm/aks-store \
+            --namespace aks-store \
+            --create-namespace \
+            --set global.imageRegistry=${{ secrets.ACR_NAME }}.azurecr.io \
+            --set storeFront.image.tag=${{ github.sha }} \
+            --set orderService.image.tag=${{ github.sha }} \
+            --set productService.image.tag=${{ github.sha }} \
+            --set ingress.tls.enabled=true \
+            --set networkPolicies.enabled=true \
+            --wait \
+            --timeout 5m
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/store-front -n aks-store --timeout=120s
+          kubectl rollout status deployment/order-service -n aks-store --timeout=120s
+          kubectl rollout status deployment/product-service -n aks-store --timeout=120s
+          echo "Deployment successful!"

@@ -1,0 +1,83 @@
+global:
+  namespace: aks-store
+  imageRegistry: ghcr.io/azure-samples/aks-store-demo
+  environment: dev
+
+namespace: aks-store
+
+ingress:
+  enabled: true
+  className: nginx
+  host: store.example.com
+  tls:
+    enabled: true
+    secretName: aks-store-tls
+
+storeFront:
+  image:
+    repository: store-front
+    tag: "2.1.0"
+    pullPolicy: IfNotPresent
+  replicas: 1
+  service:
+    type: LoadBalancer
+    port: 80
+    targetPort: 8080
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+orderService:
+  image:
+    repository: order-service
+    tag: "2.1.0"
+    pullPolicy: IfNotPresent
+  replicas: 1
+  service:
+    port: 3000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+productService:
+  image:
+    repository: product-service
+    tag: "2.1.0"
+    pullPolicy: IfNotPresent
+  replicas: 1
+  service:
+    port: 3002
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 50m
+      memory: 64Mi
+
+rabbitmq:
+  image:
+    repository: mcr.microsoft.com/azurelinux/base/rabbitmq-server
+    tag: "3.13"
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  auth:
+    username: username
+    password: password
+
+networkPolicies:
+  enabled: true
