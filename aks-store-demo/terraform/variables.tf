@@ -40,18 +40,6 @@ variable "system_vm_size" {
   default     = "Standard_D2s_v3"
 }
 
-variable "app_node_count" {
-  description = "Node count for application node pool"
-  type        = number
-  default     = 2
-}
-
-variable "app_vm_size" {
-  description = "VM size for application node pool"
-  type        = string
-  default     = "Standard_D4s_v3"
-}
-
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

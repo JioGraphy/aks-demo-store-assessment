@@ -2,6 +2,20 @@
 
 A demo store app with React frontend and Node.js backend services.
 
+## Prerequisites
+
+Install the following CLI tools:
+
+| Tool | Purpose | Install |
+|------|---------|---------|
+| Docker | Build & run containers | [docker.com](https://www.docker.com) |
+| Docker Compose | Run multi-container apps | Included with Docker |
+| Azure CLI | Manage Azure resources | `brew install azure-cli` or [docs](https://docs.microsoft.com/cli/azure/install-azure-cli) |
+| kubectl | K8s management | `az aks install-cli` or [docs](https://kubernetes.io/docs/tasks/tools/install-kubectl) |
+| Terraform | IaC for AKS | [terraform.io](https://www.terraform.io/downloads) |
+| Helm | K8s package manager | `brew install helm` or [docs](https://helm.sh/docs/intro/install) |
+| Node.js | Local development | `brew install node` |
+
 ## Quick Start (Local)
 
 One command to run everything:
