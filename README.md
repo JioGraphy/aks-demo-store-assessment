@@ -7,7 +7,7 @@ A demo store app with React frontend and Node.js backend services.
 One command to run everything:
 
 ```bash
-docker-compose up -d
+docker-compose -f aks-store-demo/docker-compose.yaml up -d
 ```
 App at http://localhost:8080
 
@@ -31,7 +31,7 @@ RabbitMQ UI: http://localhost:15672 (username/password: username/password)
 ### Option 1: docker-compose (easiest)
 
 ```bash
-docker-compose up -d
+docker-compose -f aks-store-demo/docker-compose.yaml up -d
 ```
 
 ### Option 2: Pull pre-built images
@@ -55,9 +55,9 @@ docker run -d --name store-front --network store-network -p 8080:8080 \
 ### Option 3: Build yourself
 
 ```bash
-docker build -t store-front src/store-front/
-docker build -t order-service src/order-service/
-docker build -t product-service src/product-service/
+docker build -t store-front aks-store-demo/src/store-front/
+docker build -t order-service aks-store-demo/src/order-service/
+docker build -t product-service aks-store-demo/src/product-service/
 # Then run with docker-compose using build: instead of image:
 ```
 
@@ -68,7 +68,7 @@ docker build -t product-service src/product-service/
 ### Step 1: Create AKS cluster
 
 ```bash
-cd terraform
+cd aks-store-demo/terraform
 terraform init
 terraform apply
 ```
@@ -79,13 +79,10 @@ terraform apply
 az aks get-credentials --resource-group aks-store-rg --name aks-store-cluster
 ```
 
-### Step 3: Deploy (Helm recommended)
+### Step 3: Deploy (Helm)
 
 ```bash
-helm install store ./helm/aks-store -n aks-store --create-namespace
-
-# Or use kubectl
-kubectl apply -f manifests/aks-store-quickstart.yaml
+helm install store ./aks-store-demo/helm/aks-store -n aks-store --create-namespace
 ```
 
 ### Check
@@ -101,16 +98,16 @@ kubectl get svc -n aks-store
 
 | Folder | What |
 |--------|------|
-| `helm/` | Helm chart |
-| `terraform/` | AKS cluster |
-| `pipeline/` | CI/CD |
-| `src/` | Dockerfiles |
+| `aks-store-demo/helm/` | Helm chart |
+| `aks-store-demo/terraform/` | AKS cluster |
+| `aks-store-demo/pipeline/` | CI/CD |
+| `aks-store-demo/src/` | Dockerfiles |
 
 ---
 
 ## CI/CD
 
-In Azure DevOps, use `pipeline/build-deploy.yaml`.
+In Azure DevOps, use `aks-store-demo/pipeline/build-deploy.yaml`.
 
 Variables to set:
 - `ACR_NAME`
@@ -124,9 +121,9 @@ Variables to set:
 
 ```bash
 # Local
-docker-compose up -d      # start
-docker-compose down       # stop
-docker-compose logs -f    # watch logs
+docker-compose -f aks-store-demo/docker-compose.yaml up -d      # start
+docker-compose -f aks-store-demo/docker-compose.yaml down       # stop
+docker-compose -f aks-store-demo/docker-compose.yaml logs -f    # watch logs
 
 # K8s
 kubectl get pods -n aks-store
@@ -135,7 +132,7 @@ kubectl port-forward -n aks-store svc/store-front 8080:80
 
 # Cleanup
 helm uninstall store -n aks-store
-cd terraform && terraform destroy
+cd aks-store-demo/terraform && terraform destroy
 ```
 
 ---
@@ -143,7 +140,7 @@ cd terraform && terraform destroy
 ## Test Helm
 
 ```bash
-helm lint ./helm/aks-store
+helm lint ./aks-store-demo/helm/aks-store
 ```
 
 ---
